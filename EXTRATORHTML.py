@@ -1,57 +1,17 @@
-## Extrair as informacoes dos arquivos
+# Este programa realiza buscas na página de andamentos processuais do STF.
 
-import requests
+# Para que o programa funcione, utilize um módulo dsl atualizado
 import dsl
-import os
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.select import Select
-from selenium.webdriver.common.keys import Keys
-import time
 import pandas as pd
-
-
-
-from selenium.webdriver.chrome.options import Options
- 
-# Define a custom user agent
-my_user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36"
-
-# Set up Chrome options
-chrome_options = Options()
-chrome_options.add_argument("--headless")
- 
-# Set the custom User-Agent
-chrome_options.add_argument(f"--user-agent={my_user_agent}")
-
-# Create a new instance of ChromeDriver with the desired options
-driver = webdriver.Chrome(options=chrome_options)
-
-# Set an implicit wait
-# driver.implicitly_wait(20)
-
-
-
-def waitForLoad(inputXPath): 
-
-    Wait = WebDriverWait(driver, 20)       
-    Wait.until(EC.presence_of_element_located((By.XPATH, inputXPath)))
-    
-def xpath_get (xpath):
-    
-    waitForLoad(xpath)
-    dados = driver.find_element(By.XPATH, xpath).get_attribute('innerHTML')
-    
-    return dados
-
 lista = []
 
+
+# Defina a classe a ser buscada
+classe = "ADI"
+
+# Defina o número inicial e final dos processos
 inicial = 735
 final = 735
-
-classe = "ADI"
 
 for n in range (final - inicial + 1):
     
@@ -61,32 +21,36 @@ for n in range (final - inicial + 1):
 
     url = 'https://portal.stf.jus.br/processos/listarProcessos.asp?classe=' + classe + '&numeroProcesso=' + str(processo)
     
-    dados = driver.get(url)
+    dados = dsl.webdriver_get(url)
     
-    classe = xpath_get('//*[@id="texto-pagina-interna"]/div/div/div/div[2]/div[1]/div/div[1]')
+# Defina um nome para cada variável e insira o Xpath das informações a serem buscadas
     
-    origem = xpath_get('//*[@id="descricao-procedencia"]')
+    classe = dsl.xpath_get('//*[@id="texto-pagina-interna"]/div/div/div/div[2]/div[1]/div/div[1]')
+    
+    origem = dsl.xpath_get('//*[@id="descricao-procedencia"]')
 
-    resumo = xpath_get('/html/body/div[1]/div[2]/section/div/div/div/div/div/div/div[2]/div[1]')
+    resumo = dsl.xpath_get('/html/body/div[1]/div[2]/section/div/div/div/div/div/div/div[2]/div[1]')
     
-    andamentos = xpath_get('//*[@id="texto-pagina-interna"]')
+    andamentos = dsl.xpath_get('//*[@id="texto-pagina-interna"]')
     
-    dados_processuais = xpath_get('//*[@id="informacoes"]')
+    dados_processuais = dsl.xpath_get('//*[@id="informacoes"]')
     
-    partes = xpath_get('//*[@id="partes"]')
+    partes = dsl.xpath_get('//*[@id="partes"]')
     
-    decisoes = xpath_get('//*[@id="decisoes"]')
+    decisoes = dsl.xpath_get('//*[@id="decisoes"]')
     
-    sessaovirtual = xpath_get('//*[@id="sessao-virtual"]')
+    sessaovirtual = dsl.xpath_get('//*[@id="sessao-virtual"]')
     
-    deslocamentos = xpath_get('//*[@id="deslocamentos"]')
+    deslocamentos = dsl.xpath_get('//*[@id="deslocamentos"]')
     
-    peticoes = xpath_get('//*[@id="peticoes"]')
+    peticoes = dsl.xpath_get('//*[@id="peticoes"]')
     
-    recursos = xpath_get('//*[@id="recursos"]')
+    recursos = dsl.xpath_get('//*[@id="recursos"]')
     
-    pautas = xpath_get('//*[@id="pautas"]')
+    pautas = dsl.xpath_get('//*[@id="pautas"]')
 
+
+# Define os dados a gravar, criando uma lista com as variáveis
 
     dados_a_gravar = [classe + str(processo), 
               resumo,
@@ -99,20 +63,23 @@ for n in range (final - inicial + 1):
               peticoes, 
               recursos,
               pautas]
-        
-    colunas = ['processo', 
-          'resumo',
-          'andamentos',
-          'dados_processuais',
-          'partes',
-          'decisoes', 
-          'sessaovirtual', 
-          'deslocamentos', 
-          'peticoes', 
-          'recursos',
-          'pautas']
 
+# Acrescenta na lista os dados extraídos de cada processo
     lista.append(dados_a_gravar)
+    
+# Define o nome das colunas a gravar. 
+# As colunas devem corresponder aos nomes das variáveis em dados_a_gravar
+colunas = ['processo', 
+      'resumo',
+      'andamentos',
+      'dados_processuais',
+      'partes',
+      'decisoes', 
+      'sessaovirtual', 
+      'deslocamentos', 
+      'peticoes', 
+      'recursos',
+      'pautas']
 
 df = pd.DataFrame(lista, columns = colunas)
 df.to_csv('Dados_processuais.csv', index=False)
