@@ -30,7 +30,7 @@ chrome_options.add_argument(f"--user-agent={my_user_agent}")
 driver = webdriver.Chrome(options=chrome_options)
 
 # Set an implicit wait
-driver.implicitly_wait(20)
+# driver.implicitly_wait(20)
 
 
 
@@ -48,47 +48,59 @@ def xpath_get (xpath):
 
 lista = []
 
-processo = 1000
+inicial = 735
+final = 735
+
 classe = "ADI"
 
-url = 'https://portal.stf.jus.br/processos/listarProcessos.asp?classe=' + classe + '&numeroProcesso=' + str(processo)
+for n in range (final - inicial + 1):
+    
+    processo = n + inicial
+    
+    print (processo)
 
-dados = driver.get(url)
+    url = 'https://portal.stf.jus.br/processos/listarProcessos.asp?classe=' + classe + '&numeroProcesso=' + str(processo)
+    
+    dados = driver.get(url)
+    
+    classe = xpath_get('//*[@id="texto-pagina-interna"]/div/div/div/div[2]/div[1]/div/div[1]')
+    
+    origem = xpath_get('//*[@id="descricao-procedencia"]')
 
-resumo = xpath_get('//*[@id="texto-pagina-interna"]')
+    resumo = xpath_get('/html/body/div[1]/div[2]/section/div/div/div/div/div/div/div[2]/div[1]')
+    
+    andamentos = xpath_get('//*[@id="texto-pagina-interna"]')
+    
+    dados_processuais = xpath_get('//*[@id="informacoes"]')
+    
+    partes = xpath_get('//*[@id="partes"]')
+    
+    decisoes = xpath_get('//*[@id="decisoes"]')
+    
+    sessaovirtual = xpath_get('//*[@id="sessao-virtual"]')
+    
+    deslocamentos = xpath_get('//*[@id="deslocamentos"]')
+    
+    peticoes = xpath_get('//*[@id="peticoes"]')
+    
+    recursos = xpath_get('//*[@id="recursos"]')
+    
+    pautas = xpath_get('//*[@id="pautas"]')
 
-andamentos = xpath_get('//*[@id="texto-pagina-interna"]')
 
-dados_processuais = xpath_get('//*[@id="informacoes"]')
-
-partes = xpath_get('//*[@id="partes"]')
-
-decisoes = xpath_get('//*[@id="decisoes"]')
-
-sessaovirtual = xpath_get('//*[@id="sessao-virtual"]')
-
-deslocamentos = xpath_get('//*[@id="deslocamentos"]')
-
-peticoes = xpath_get('//*[@id="peticoes"]')
-
-recursos = xpath_get('//*[@id="recursos"]')
-
-pautas = xpath_get('//*[@id="pautas"]')
-
-
-dados_a_gravar = [classe + str(processo), 
-          resumo,
-          andamentos,
-          dados_processuais,
-          partes,
-          decisoes, 
-          sessaovirtual, 
-          deslocamentos, 
-          peticoes, 
-          recursos,
-          pautas]
+    dados_a_gravar = [classe + str(processo), 
+              resumo,
+              andamentos,
+              dados_processuais,
+              partes,
+              decisoes, 
+              sessaovirtual, 
+              deslocamentos, 
+              peticoes, 
+              recursos,
+              pautas]
         
-colunas = ['processo', 
+    colunas = ['processo', 
           'resumo',
           'andamentos',
           'dados_processuais',
@@ -100,7 +112,7 @@ colunas = ['processo',
           'recursos',
           'pautas']
 
-lista.append(dados_a_gravar)
+    lista.append(dados_a_gravar)
 
 df = pd.DataFrame(lista, columns = colunas)
 df.to_csv('Dados_processuais.csv', index=False)
