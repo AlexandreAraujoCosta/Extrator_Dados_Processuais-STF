@@ -14,6 +14,7 @@ import dsl
 from dsl import ext, clean, clext, get
 from time import sleep
 import pandas as pd
+import json
 lista = []
 dados_a_gravar = []
 
@@ -152,16 +153,38 @@ for n in range (final - inicial + 1):
     # Cria uma lista com os dados de cada parte.
     partes0 = dados_partes.split('<div class="processo-partes lista-dados m-l-16 p-t-0">')[1:]
     partes = []
-    index = -1
+    index = 0
+    n_adv = 0
+    parte1 = 'NA'
     for parte in partes0:
         parte_tipo = ext(parte,'<div class="detalhe-parte">','<')
+        parte_tipo = parte_tipo.replace('.(S)','')
+        parte_tipo = parte_tipo.replace('.(A/S)','')
+        parte_tipo = parte_tipo.replace('AM. CURIAE.','AMICUS')
+        
         parte_nome = ext(parte,'<div class="nome-parte">','<')
+        parte_nome = dsl.remover_acentos(parte_nome)
+        parte_nome = dsl.ajustar_nome(parte_nome)
+        parte_nome = dsl.ajusta_requerentes(parte_nome)
+        
         if 'ADV' in parte_tipo:
             index_adv = str(index)+'a'
-            partes.append([index_adv,parte_tipo,parte_nome])
+            n_adv = n_adv + 1
+            partes.append({"index": index_adv,
+                            "tipo": parte_tipo,
+                            "nome": parte_nome})
         else:
             index = (index+1)
-            partes.append([str(index),parte_tipo,parte_nome])
+            n_partes = index
+            if index == 1:
+                parte1 = parte_nome
+            partes.append({"index": str(index),
+                            "tipo": parte_tipo,
+                            "nome": parte_nome})
+            
+    
+    partes_json = json.dumps(partes, ensure_ascii=False)
+    
 
 # Busca os dados contidos na aba Andamentos.
     andamentos_dados = get('https://portal.stf.jus.br/processos/abaAndamentos.asp?incidente=' + incidente_id)
@@ -194,11 +217,11 @@ for n in range (final - inicial + 1):
         # Cria dicionário com os dados dos andamentos            
         andamento_dados = {'index': index,
                            'data': andamento_data,
-                           'nome': andamento_nome,
-                           'complemento': andamento_complemento,
-                           'julgador': andamento_julgador,
+                           'nome': dsl.remover_acentos(andamento_nome.upper()),
+                           'complemento': dsl.remover_acentos(andamento_complemento.upper()),
+                           'julgador': dsl.remover_acentos(andamento_julgador.upper()),
                            'docs': andamento_docs,
-                           'item': item.replace('\r\n','')
+                           # 'item': item.replace('\r\n','')
                             }
 
         # Acrescenta os andamentos a uma lista com todos os andamentos do processo.
@@ -206,6 +229,44 @@ for n in range (final - inicial + 1):
         
         if andamento_julgador != 'NA':
             decisoes.append(andamento_dados)
+    
+    andamentos_json = json.dumps(andamentos_lista, ensure_ascii=False)
+    
+    data_protocolo = 'NA'
+    for elemento in reversed(andamentos_lista):
+        if elemento['nome'] == 'PROTOCOLADO':
+            data_protocolo = elemento['data']
+            break
+    
+    data_autuacao = 'NA'
+    for elemento in reversed(andamentos_lista):
+        if elemento['nome'] == 'AUTUADO':
+            data_autuacao = elemento['data']
+            break
+    
+    data_distribuicao = 'NA'
+    for elemento in reversed(andamentos_lista):
+        if elemento['nome'] == 'DISTRIBUIDO':
+            data_distribuicao = elemento['data']
+            primeiro_relator = elemento['complemento']
+            break
+    
+    decisoes_monocraticas = []
+    decisoes_colegiadas = []
+    inclusao_pauta = []
+    decisoes_embargos = []
+    for elemento in reversed(andamentos_lista):
+        if elemento['julgador'] != 'NA':
+            if ('INCLUA-SE EM PAUTA' in elemento['nome'] or
+                'INCLUIDO NA LISTA' in elemento['nome'] or
+                'APRESENTADO EM MESA' in elemento['nome']):
+                inclusao_pauta.append(elemento)
+            elif ('EMBARGOS' in elemento['nome']):
+                decisoes_embargos.append(elemento)
+            elif ('MIN.' in elemento['julgador']):
+                decisoes_monocraticas.append(elemento)
+            else:
+                decisoes_colegiadas.append(elemento)
     
 # Processa dados referentes ao julgamento em sessão virtual.
     incidentes_processuais = get('https://sistemas.stf.jus.br/repgeral/votacao?oi='+ incidente_id)
@@ -233,26 +294,44 @@ for n in range (final - inicial + 1):
                       "numero": processo,
                       "n_unico": n_unico,
                       "origem": origem,
-                      "len(partes)": len(partes),
-                      "partes": partes,
-                      "origem_orgao": origem_orgao,
-                      "origem_numero": origem_numero,
+                      "data_protocolo": data_protocolo,
+                      "data_autuação": data_autuacao,
+                      "data_distribuição1": data_distribuicao,
+                      "relator1": primeiro_relator,
                        "relator_final": relator_final,
                        "relator_ultimo_incidente": relator_ultimo_incidente,
+                      "n_partes": n_partes,
+                      "n_advogados": n_adv,
+                      "partes": partes_json,
+                      "parte1": parte1,
+                      "origem_orgao": origem_orgao,
+                      "origem_numero": origem_numero,
                        "len(assuntos)": len(assuntos),
                        "assuntos": assuntos,
                        "volumes": volumes,
                        "folhas": folhas,
                        "apensos": apensos,
                        "len(andamentos)": len(andamentos_lista),
-                       "andamentos": andamentos_lista,
+                       "andamentos": andamentos_json,
                        "len(decisoes)": len(decisoes),
                        "decisoes": decisoes,
-                       "len(incidentes)": len(incidentes_processuais),
+                       "len(decisões monocráticas": len(decisoes_monocraticas),
+                       "decisões_monocráticas": json.dumps(decisoes_monocraticas,
+                                                ensure_ascii=False),
+                       "len( decisoes_colegiadas": len(decisoes_colegiadas),
+                       "decisoes_colegiadas": json.dumps(decisoes_colegiadas,
+                                              ensure_ascii=False),
+                       "len(decisões embargos": len(decisoes_embargos),
+                       "decisões embargos": json.dumps(decisoes_embargos,
+                                            ensure_ascii=False),
+                       "len(inclusoes_pauta": len(inclusao_pauta),
+                       "inclusoes pauta": json.dumps(inclusao_pauta,
+                                          ensure_ascii=False),
+                       "len(incidentes)": len(incidentes_split),
                        "incidentes_json": incidentes_processuais,
                        "incidentes_julgamentos": incidentes_julgamentos
                        }
-
+    
     
     if '<div class="message-404">Processo não encontrado</div>' in dados:
         print (str(processo) + ' não encontrado')
@@ -264,5 +343,5 @@ for n in range (final - inicial + 1):
 df = pd.DataFrame(lista, columns = list(dados_a_gravar.keys()))
 
 # Grava o arquivo.
-df.to_excel(arquivo_a_gravar + '.xlsx', index=False)
-print ('Gravado arquivo ' + arquivo_a_gravar + '.xlsx')
+df.to_csv(arquivo_a_gravar + '.csv', index=False)
+print ('Gravado arquivo ' + arquivo_a_gravar + '.csv')
